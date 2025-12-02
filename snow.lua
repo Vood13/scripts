@@ -1,9 +1,16 @@
+--[[
+    Snow - Kvizzi Menu
+    Связь: @Kvizzi
+    Ключ: key12345
+    Открытие меню: LControl (левый Ctrl)
+]]
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
+local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local StatsService = game:GetService("Stats")
 
 -- Настройки темы
 local themes = {
@@ -54,11 +61,14 @@ local settings = {
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SnowMenu"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-if syn and syn.protect_gui then
-    syn.protect_gui(ScreenGui)
-end
-ScreenGui.Parent = game.CoreGui
+-- Переменные для управления меню
+local isMenuOpen = false
+local mainFrame = nil
+local menuToggleKey = Enum.KeyCode.LeftControl
+local keyInputConnections = {}
+local updateConnections = {}
 
 -- Функция для анимаций
 local function tween(obj, props, duration)
@@ -125,10 +135,79 @@ local function showNotification(title, text, icon)
     tween(notification, {Position = UDim2.new(1, -320, 1, -100)}, 0.3)
     
     -- Автоматическое скрытие через 5 секунд
-    task.wait(5)
-    tween(notification, {Position = UDim2.new(1, 300, 1, -100)}, 0.3)
+    task.spawn(function()
+        task.wait(5)
+        tween(notification, {Position = UDim2.new(1, 300, 1, -100)}, 0.3)
+        task.wait(0.3)
+        notification:Destroy()
+    end)
+end
+
+-- Функция получения реального времени через HTTP
+local function getRealTime()
+    local success, result = pcall(function()
+        -- Используем TimeAPI для получения времени
+        local response = HttpService:GetAsync("http://worldtimeapi.org/api/timezone/Europe/Moscow")
+        local data = HttpService:JSONDecode(response)
+        return data.datetime
+    end)
+    
+    if success and result then
+        return result
+    else
+        -- Если HTTP запрос не удался, используем локальное время
+        return os.date("%Y-%m-%d %H:%M:%S")
+    end
+end
+
+-- Функция получения пинга
+local function getPing()
+    if StatsService and StatsService.Network then
+        local pingStat = StatsService.Network.ServerStatsItem["Data Ping"]
+        if pingStat then
+            return math.floor(pingStat:GetValue())
+        end
+    end
+    return 0
+end
+
+-- Функция закрытия меню
+local function closeMenu()
+    if not mainFrame then return end
+    
+    isMenuOpen = false
+    tween(mainFrame, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3)
     task.wait(0.3)
-    notification:Destroy()
+    mainFrame:Destroy()
+    mainFrame = nil
+    
+    -- Очищаем соединения для обновлений
+    for _, connection in pairs(updateConnections) do
+        connection:Disconnect()
+    end
+    updateConnections = {}
+    
+    showNotification("Menu", "Menu closed", "📱")
+end
+
+-- Функция открытия меню
+local function openMenu()
+    if isMenuOpen then
+        closeMenu()
+        return
+    end
+    
+    isMenuOpen = true
+    createMainMenu()
+    showNotification("Menu", "Menu opened", "📱")
+end
+
+-- Функция для форматирования времени
+local function formatTime(seconds)
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local secs = math.floor(seconds % 60)
+    return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
 -- Прогресс бар загрузки
@@ -279,13 +358,14 @@ local function createKeyInput()
     
     submitButton.MouseButton1Click:Connect(function()
         if keyBox.Text == "key12345" then
-            showNotification("✅ Success", "Welcome to Snow - Kvizzi!", "✅")
+            showNotification("✅ Success", "Welcome to Snow - Kvizzi! Press LControl to open menu", "✅")
             task.wait(0.5)
             keyFrame:Destroy()
-            createMainMenu()
+            setupKeyBind()
         else
             keyBox.Text = ""
             keyBox.PlaceholderText = "Wrong key! Try again..."
+            showNotification("❌ Error", "Invalid key!", "❌")
         end
     end)
     
@@ -295,11 +375,35 @@ local function createKeyInput()
     tween(keyFrame, {Position = UDim2.new(0.5, -200, 0.5, -125), BackgroundTransparency = 0}, 0.5)
 end
 
+-- Настройка привязки клавиши
+local function setupKeyBind()
+    -- Очищаем старые соединения
+    for _, connection in pairs(keyInputConnections) do
+        connection:Disconnect()
+    end
+    keyInputConnections = {}
+    
+    -- Назначаем клавишу для открытия/закрытия меню
+    table.insert(keyInputConnections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == menuToggleKey then
+            openMenu()
+        end
+    end))
+    
+    showNotification("Key Bind", "Menu toggle key set to: LControl", "⌨️")
+end
+
 -- Главное меню
 local function createMainMenu()
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 500, 0, 400)
-    mainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+    if mainFrame then
+        mainFrame:Destroy()
+    end
+    
+    mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 0, 0, 0)
+    mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainFrame.BackgroundColor3 = themes[currentTheme].bg
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = ScreenGui
@@ -327,6 +431,24 @@ local function createMainMenu()
     title.TextSize = 20
     title.Font = Enum.Font.GothamBold
     title.Parent = topBar
+    
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -35, 0.5, -15)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Text = "X"
+    closeButton.TextSize = 16
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.Parent = topBar
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 4)
+    closeCorner.Parent = closeButton
+    
+    closeButton.MouseButton1Click:Connect(function()
+        closeMenu()
+    end)
     
     local sidebar = Instance.new("Frame")
     sidebar.Size = UDim2.new(0, 120, 0, 360)
@@ -818,7 +940,7 @@ local function createMainMenu()
     
     settingsY = settingsY + 40
     
-    -- Server Time
+    -- Server Time через HTTP
     local timeLabel = Instance.new("TextLabel")
     timeLabel.Size = UDim2.new(0, 200, 0, 30)
     timeLabel.Position = UDim2.new(0, 20, 0, settingsY)
@@ -895,6 +1017,54 @@ local function createMainMenu()
     
     settingsY = settingsY + 40
     
+    -- Bind Key для открытия меню
+    local bindLabel = Instance.new("TextLabel")
+    bindLabel.Size = UDim2.new(0, 120, 0, 30)
+    bindLabel.Position = UDim2.new(0, 20, 0, settingsY)
+    bindLabel.BackgroundTransparency = 1
+    bindLabel.Text = "⌨️ Open Key: LControl"
+    bindLabel.TextColor3 = themes[currentTheme].text
+    bindLabel.TextSize = 16
+    bindLabel.Font = Enum.Font.Gotham
+    bindLabel.TextXAlignment = Enum.TextXAlignment.Left
+    bindLabel.Parent = settingsSection
+    
+    local bindButton = Instance.new("TextButton")
+    bindButton.Size = UDim2.new(0, 100, 0, 30)
+    bindButton.Position = UDim2.new(0, 150, 0, settingsY)
+    bindButton.BackgroundColor3 = themes[currentTheme].button
+    bindButton.TextColor3 = themes[currentTheme].text
+    bindButton.Text = "Change"
+    bindButton.TextSize = 14
+    bindButton.Font = Enum.Font.Gotham
+    bindButton.Parent = settingsSection
+    
+    local bindBtnCorner = Instance.new("UICorner")
+    bindBtnCorner.CornerRadius = UDim.new(0, 4)
+    bindBtnCorner.Parent = bindButton
+    
+    bindButton.MouseButton1Click:Connect(function()
+        bindButton.Text = "Press any key..."
+        bindButton.BackgroundColor3 = themes[currentTheme].accent
+        
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                menuToggleKey = input.KeyCode
+                bindLabel.Text = "⌨️ Open Key: " .. tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+                bindButton.Text = "Change"
+                bindButton.BackgroundColor3 = themes[currentTheme].button
+                connection:Disconnect()
+                
+                showNotification("Key Bind", "Menu key changed to: " .. tostring(input.KeyCode):gsub("Enum.KeyCode.", ""), "⌨️")
+            end
+        end)
+    end)
+    
+    settingsY = settingsY + 40
+    
     -- Exit button
     local exitButton = Instance.new("TextButton")
     exitButton.Size = UDim2.new(0, 200, 0, 40)
@@ -914,27 +1084,23 @@ local function createMainMenu()
         showNotification("Exit", "Script ending...", "👋")
         task.wait(0.5)
         ScreenGui:Destroy()
-        -- Здесь можно добавить дополнительные действия при выходе
     end)
     
-    -- Анимация появления меню
-    mainFrame.Position = UDim2.new(0.5, -250, 0.3, 0)
-    mainFrame.BackgroundTransparency = 1
-    tween(mainFrame, {Position = UDim2.new(0.5, -250, 0.5, -200), BackgroundTransparency = 0}, 0.5)
+    -- Анимация открытия меню
+    tween(mainFrame, {Size = UDim2.new(0, 500, 0, 400), Position = UDim2.new(0.5, -250, 0.5, -200)}, 0.3)
     
-    -- Показываем приветственное уведомление
-    showNotification("Welcome", "Welcome to Snow - Kvizzi! 🎉", "👋")
-    
-    -- Обновление времени и пинга
-    RunService.RenderStepped:Connect(function()
-        -- Server Time
-        local serverTime = DateTime.now():ToIsoDate()
-        timeLabel.Text = "🕒 Server Time: " .. serverTime
+    -- Обновление времени и пинга в реальном времени
+    table.insert(updateConnections, RunService.RenderStepped:Connect(function()
+        -- Обновление времени каждую секунду
+        if tick() % 1 < 0.05 then  -- Обновляем каждую секунду
+            local currentTime = getRealTime()
+            timeLabel.Text = "🕒 Server Time: " .. currentTime
+        end
         
-        -- Ping
-        local ping = math.random(30, 100) -- В реальном скрипте используйте реальный пинг
+        -- Обновление пинга
+        local ping = getPing()
         pingLabel.Text = "📶 Ping: " .. ping .. " ms"
-    end)
+    end))
     
     -- Noclip обработка
     local noclipConnection
@@ -948,11 +1114,14 @@ local function createMainMenu()
         end
     end)
     
+    table.insert(updateConnections, noclipConnection)
+    
     -- Очистка при уничтожении
     mainFrame.Destroying:Connect(function()
-        if noclipConnection then
-            noclipConnection:Disconnect()
+        for _, connection in pairs(updateConnections) do
+            connection:Disconnect()
         end
+        updateConnections = {}
     end)
 end
 
