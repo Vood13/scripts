@@ -213,15 +213,20 @@ end
 -- Прогресс бар загрузки
 local function createLoadingScreen()
     local loadingFrame = Instance.new("Frame")
-    loadingFrame.Size = UDim2.new(1, 0, 1, 0)
+    loadingFrame.Size = UDim2.new(0, 400, 0, 250)  -- Было на весь экран
+    loadingFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
     loadingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     loadingFrame.BorderSizePixel = 0
     loadingFrame.ZIndex = 10
     loadingFrame.Parent = ScreenGui
     
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = loadingFrame
+    
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0, 200, 0, 40)
-    title.Position = UDim2.new(0.5, -100, 0.4, -20)
+    title.Position = UDim2.new(0.5, -100, 0, 30)
     title.BackgroundTransparency = 1
     title.Text = "Snow - Kvizzi"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -230,18 +235,20 @@ local function createLoadingScreen()
     title.Parent = loadingFrame
     
     local description = Instance.new("TextLabel")
-    description.Size = UDim2.new(0, 400, 0, 20)
-    description.Position = UDim2.new(0.5, -200, 0.5, -10)
+    description.Size = UDim2.new(0, 350, 0, 40)
+    description.Position = UDim2.new(0.5, -175, 0, 80)
     description.BackgroundTransparency = 1
     description.Text = "if u want to get key, write me: @Kvizzi"
     description.TextColor3 = Color3.fromRGB(200, 200, 200)
     description.TextSize = 14
     description.Font = Enum.Font.Gotham
+    description.TextYAlignment = Enum.TextYAlignment.Top
+    description.TextWrapped = true
     description.Parent = loadingFrame
     
     local progressBarBack = Instance.new("Frame")
     progressBarBack.Size = UDim2.new(0, 300, 0, 20)
-    progressBarBack.Position = UDim2.new(0.5, -150, 0.6, -10)
+    progressBarBack.Position = UDim2.new(0.5, -150, 0.7, -10)
     progressBarBack.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     progressBarBack.BorderSizePixel = 0
     progressBarBack.Parent = loadingFrame
@@ -396,6 +403,7 @@ local function setupKeyBind()
 end
 
 -- Главное меню
+-- Главное меню (уменьшенное)
 local function createMainMenu()
     if mainFrame then
         mainFrame:Destroy()
@@ -450,16 +458,17 @@ local function createMainMenu()
         closeMenu()
     end)
     
+    -- Уменьшаем размер меню до 450x350
     local sidebar = Instance.new("Frame")
-    sidebar.Size = UDim2.new(0, 120, 0, 360)
+    sidebar.Size = UDim2.new(0, 100, 0, 310)  -- Уже
     sidebar.Position = UDim2.new(0, 0, 0, 40)
     sidebar.BackgroundColor3 = themes[currentTheme].header
     sidebar.BorderSizePixel = 0
     sidebar.Parent = mainFrame
     
     local contentFrame = Instance.new("Frame")
-    contentFrame.Size = UDim2.new(0, 380, 0, 360)
-    contentFrame.Position = UDim2.new(0, 120, 0, 40)
+    contentFrame.Size = UDim2.new(0, 350, 0, 310)  -- Уже
+    contentFrame.Position = UDim2.new(0, 100, 0, 40)
     contentFrame.BackgroundColor3 = themes[currentTheme].bg
     contentFrame.BorderSizePixel = 0
     contentFrame.ClipsDescendants = true
@@ -492,17 +501,17 @@ local function createMainMenu()
         end
     end
     
-    -- Создаем кнопки сайдбара
+    -- Создаем кнопки сайдбара (более компактные)
     local buttonY = 10
     for name, text in pairs(sections) do
         local button = Instance.new("TextButton")
         button.Name = name
-        button.Size = UDim2.new(0, 100, 0, 40)
+        button.Size = UDim2.new(0, 80, 0, 35)  -- Меньше
         button.Position = UDim2.new(0, 10, 0, buttonY)
         button.BackgroundColor3 = name == "main" and themes[currentTheme].accent or themes[currentTheme].button
         button.TextColor3 = themes[currentTheme].text
         button.Text = text
-        button.TextSize = 14
+        button.TextSize = 12  -- Меньше
         button.Font = Enum.Font.Gotham
         button.Parent = sidebar
         
@@ -514,7 +523,7 @@ local function createMainMenu()
             switchSection(name)
         end)
         
-        buttonY = buttonY + 50
+        buttonY = buttonY + 40  -- Меньше расстояние
     end
     
     -- Раздел Main
@@ -1087,7 +1096,7 @@ local function createMainMenu()
     end)
     
     -- Анимация открытия меню
-    tween(mainFrame, {Size = UDim2.new(0, 500, 0, 400), Position = UDim2.new(0.5, -250, 0.5, -200)}, 0.3)
+    tween(mainFrame, {Size = UDim2.new(0, 450, 0, 350), Position = UDim2.new(0.5, -225, 0.5, -175)}, 0.3)
     
     -- Обновление времени и пинга в реальном времени
     table.insert(updateConnections, RunService.RenderStepped:Connect(function()
