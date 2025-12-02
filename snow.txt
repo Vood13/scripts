@@ -56,7 +56,7 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if syn and syn.protect_gui then
     syn.protect_gui(ScreenGui)
 end
-ScreenGui.Parent = game.CoreGui
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Функция для анимаций
 local function tween(obj, props, duration)
