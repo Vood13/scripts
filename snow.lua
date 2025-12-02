@@ -1,9 +1,3 @@
---[[
-    Snow - Kvizzi Menu
-    Связь: @Kvizzi
-    Ключ: key12345
-]]
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
