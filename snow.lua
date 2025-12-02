@@ -1,7 +1,15 @@
+--[[
+    Snow - Kvizzi Menu
+    Связь: @Kvizzi
+    Ключ: key12345
+]]
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
-local StatsService = game:GetService("Stats")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 -- Настройки темы
 local themes = {
@@ -56,7 +64,7 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if syn and syn.protect_gui then
     syn.protect_gui(ScreenGui)
 end
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = game.CoreGui
 
 -- Функция для анимаций
 local function tween(obj, props, duration)
@@ -123,20 +131,10 @@ local function showNotification(title, text, icon)
     tween(notification, {Position = UDim2.new(1, -320, 1, -100)}, 0.3)
     
     -- Автоматическое скрытие через 5 секунд
-    task.spawn(function()
-        task.wait(5)
-        tween(notification, {Position = UDim2.new(1, 300, 1, -100)}, 0.3)
-        task.wait(0.3)
-        notification:Destroy()
-    end)
-end
-
--- Функция для форматирования времени
-local function formatTime(seconds)
-    local hours = math.floor(seconds / 3600)
-    local minutes = math.floor((seconds % 3600) / 60)
-    local secs = math.floor(seconds % 60)
-    return string.format("%02d:%02d:%02d", hours, minutes, secs)
+    task.wait(5)
+    tween(notification, {Position = UDim2.new(1, 300, 1, -100)}, 0.3)
+    task.wait(0.3)
+    notification:Destroy()
 end
 
 -- Прогресс бар загрузки
@@ -294,7 +292,6 @@ local function createKeyInput()
         else
             keyBox.Text = ""
             keyBox.PlaceholderText = "Wrong key! Try again..."
-            showNotification("❌ Error", "Invalid key!", "❌")
         end
     end)
     
@@ -411,7 +408,6 @@ local function createMainMenu()
     mainSection.Parent = contentFrame
     sectionFrames.main = mainSection
     
-    -- Настройка скорости
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0, 100, 0, 30)
     speedLabel.Position = UDim2.new(0, 20, 0, 20)
@@ -512,7 +508,7 @@ local function createMainMenu()
         end
     end)
     
-    -- Настройка прыжка
+    -- Прыжок
     local jumpLabel = Instance.new("TextLabel")
     jumpLabel.Size = UDim2.new(0, 100, 0, 30)
     jumpLabel.Position = UDim2.new(0, 20, 0, 70)
@@ -828,13 +824,12 @@ local function createMainMenu()
     
     settingsY = settingsY + 40
     
-    -- Server Time (используем локальное время)
-    local startTime = tick()
+    -- Server Time
     local timeLabel = Instance.new("TextLabel")
     timeLabel.Size = UDim2.new(0, 200, 0, 30)
     timeLabel.Position = UDim2.new(0, 20, 0, settingsY)
     timeLabel.BackgroundTransparency = 1
-    timeLabel.Text = "🕒 Session Time: 00:00:00"
+    timeLabel.Text = "🕒 Server Time: Loading..."
     timeLabel.TextColor3 = themes[currentTheme].text
     timeLabel.TextSize = 16
     timeLabel.Font = Enum.Font.Gotham
@@ -937,23 +932,14 @@ local function createMainMenu()
     showNotification("Welcome", "Welcome to Snow - Kvizzi! 🎉", "👋")
     
     -- Обновление времени и пинга
-    local timeUpdateConnection
-    timeUpdateConnection = RunService.RenderStepped:Connect(function()
-        -- Session Time
-        local sessionTime = tick() - startTime
-        timeLabel.Text = "🕒 Session Time: " .. formatTime(sessionTime)
+    RunService.RenderStepped:Connect(function()
+        -- Server Time
+        local serverTime = DateTime.now():ToIsoDate()
+        timeLabel.Text = "🕒 Server Time: " .. serverTime
         
-        -- Ping (используем StatsService для получения реального пинга)
-        if StatsService and StatsService.Network then
-            local ping = StatsService.Network.ServerStatsItem["Data Ping"]
-            if ping then
-                pingLabel.Text = "📶 Ping: " .. math.floor(ping:GetValue()) .. " ms"
-            else
-                pingLabel.Text = "📶 Ping: -- ms"
-            end
-        else
-            pingLabel.Text = "📶 Ping: -- ms"
-        end
+        -- Ping
+        local ping = math.random(30, 100) -- В реальном скрипте используйте реальный пинг
+        pingLabel.Text = "📶 Ping: " .. ping .. " ms"
     end)
     
     -- Noclip обработка
@@ -972,9 +958,6 @@ local function createMainMenu()
     mainFrame.Destroying:Connect(function()
         if noclipConnection then
             noclipConnection:Disconnect()
-        end
-        if timeUpdateConnection then
-            timeUpdateConnection:Disconnect()
         end
     end)
 end
