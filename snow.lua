@@ -1,7 +1,6 @@
 --[[
     Snow - Kvizzi Menu
     Связь: @Kvizzi
-    Ключ: key12345
     Открытие меню: LControl (левый Ctrl)
 ]]
 
@@ -10,7 +9,6 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local StatsService = game:GetService("Stats")
 
 -- Создаем основной экран
 local ScreenGui = Instance.new("ScreenGui")
@@ -66,7 +64,6 @@ local playerSettings = {
     noclip = false
 }
 local noclipConnection = nil
-local themeDropdown = nil
 
 -- Функция для анимаций
 local function tween(obj, props, duration)
@@ -76,7 +73,7 @@ local function tween(obj, props, duration)
     return tweenObj
 end
 
--- НОВЫЙ ДИЗАЙН УВЕДОМЛЕНИЙ (минималистичный)
+-- Уведомления (минималистичный дизайн)
 local function showNotification(text, icon)
     if not notificationsEnabled then return end
     
@@ -142,44 +139,6 @@ local function showNotification(text, icon)
     end)
 end
 
--- Функция настройки привязки клавиши
-local function setupKeyBind()
-    if keyBindConnection then
-        keyBindConnection:Disconnect()
-    end
-    
-    keyBindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == menuToggleKey then
-            if not isMenuOpen then
-                createMainMenu()
-                isMenuOpen = true
-            else
-                closeMenu()
-            end
-        end
-    end)
-    
-    showNotification("Press LControl to open menu", "⌨️")
-end
-
--- Функция закрытия меню
-local function closeMenu()
-    if not mainFrame then return end
-    
-    isMenuOpen = false
-    tween(mainFrame, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3)
-    task.wait(0.3)
-    mainFrame:Destroy()
-    mainFrame = nil
-    
-    if noclipConnection then
-        noclipConnection:Disconnect()
-        noclipConnection = nil
-    end
-end
-
 -- Функция для noclip
 local function updateNoclip()
     if noclipConnection then
@@ -201,6 +160,47 @@ local function updateNoclip()
     else
         showNotification("Noclip disabled", "✅")
     end
+end
+
+-- Функция закрытия меню
+local function closeMenu()
+    if not mainFrame then return end
+    
+    isMenuOpen = false
+    tween(mainFrame, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3)
+    task.wait(0.3)
+    mainFrame:Destroy()
+    mainFrame = nil
+    
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    showNotification("Menu closed", "📱")
+end
+
+-- Функция настройки привязки клавиши
+local function setupKeyBind()
+    if keyBindConnection then
+        keyBindConnection:Disconnect()
+    end
+    
+    keyBindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == menuToggleKey then
+            if not isMenuOpen then
+                createMainMenu()
+                isMenuOpen = true
+                showNotification("Menu opened", "📱")
+            else
+                closeMenu()
+            end
+        end
+    end)
+    
+    showNotification("Press LControl to open menu", "⌨️")
 end
 
 -- Прогресс бар загрузки
@@ -281,89 +281,10 @@ local function createLoadingScreen()
             task.spawn(function()
                 task.wait(0.5)
                 loadingFrame:Destroy()
-                createKeyInput()
+                -- После загрузки сразу настраиваем клавишу
+                setupKeyBind()
+                showNotification("Menu ready! Press LControl", "✅")
             end)
-        end
-    end)
-end
-
--- Экран ввода ключа
-local function createKeyInput()
-    local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.new(0, 400, 0, 250)
-    keyFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
-    keyFrame.BackgroundColor3 = themes[currentTheme].bg
-    keyFrame.BorderSizePixel = 0
-    keyFrame.ZIndex = 10
-    keyFrame.Parent = ScreenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = keyFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 300, 0, 40)
-    title.Position = UDim2.new(0.5, -150, 0, 20)
-    title.BackgroundTransparency = 1
-    title.Text = "Snow - Kvizzi"
-    title.TextColor3 = themes[currentTheme].accent
-    title.TextSize = 24
-    title.Font = Enum.Font.GothamBold
-    title.Parent = keyFrame
-    
-    local description = Instance.new("TextLabel")
-    description.Size = UDim2.new(0, 350, 0, 40)
-    description.Position = UDim2.new(0.5, -175, 0, 60)
-    description.BackgroundTransparency = 1
-    description.Text = "Enter key to continue\nif u want to get key, write me: @Kvizzi"
-    description.TextColor3 = themes[currentTheme].text
-    description.TextSize = 14
-    description.Font = Enum.Font.Gotham
-    description.TextYAlignment = Enum.TextYAlignment.Top
-    description.TextWrapped = true
-    description.Parent = keyFrame
-    
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0, 300, 0, 40)
-    keyBox.Position = UDim2.new(0.5, -150, 0.5, -20)
-    keyBox.BackgroundColor3 = themes[currentTheme].button
-    keyBox.TextColor3 = themes[currentTheme].text
-    keyBox.Text = ""
-    keyBox.PlaceholderText = "Enter key here..."
-    keyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    keyBox.TextSize = 16
-    keyBox.Font = Enum.Font.Gotham
-    keyBox.ClearTextOnFocus = false
-    keyBox.Parent = keyFrame
-    
-    local boxCorner = Instance.new("UICorner")
-    boxCorner.CornerRadius = UDim.new(0, 4)
-    boxCorner.Parent = keyBox
-    
-    local submitButton = Instance.new("TextButton")
-    submitButton.Size = UDim2.new(0, 100, 0, 40)
-    submitButton.Position = UDim2.new(0.5, -50, 0.8, -20)
-    submitButton.BackgroundColor3 = themes[currentTheme].accent
-    submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitButton.Text = "SUBMIT"
-    submitButton.TextSize = 16
-    submitButton.Font = Enum.Font.GothamBold
-    submitButton.Parent = keyFrame
-    
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 4)
-    buttonCorner.Parent = submitButton
-    
-    submitButton.MouseButton1Click:Connect(function()
-        if keyBox.Text == "key12345" then
-            showNotification("Welcome to Snow - Kvizzi!", "✅")
-            task.wait(0.5)
-            keyFrame:Destroy()
-            setupKeyBind()
-        else
-            keyBox.Text = ""
-            keyBox.PlaceholderText = "Wrong key! Try again..."
-            showNotification("Invalid key!", "❌")
         end
     end)
 end
@@ -829,69 +750,40 @@ local function createMainMenu()
     themeBtnCorner.Parent = themeButton
     
     themeButton.MouseButton1Click:Connect(function()
-        if themeDropdown then
-            themeDropdown:Destroy()
-            themeDropdown = nil
-            return
-        end
-        
-        themeDropdown = Instance.new("Frame")
-        themeDropdown.Size = UDim2.new(0, 100, 0, 0)
-        themeDropdown.Position = UDim2.new(0, 150, 0, settingsY + 35)
-        themeDropdown.BackgroundColor3 = themes[currentTheme].header
-        themeDropdown.BorderSizePixel = 1
-        themeDropdown.BorderColor3 = themes[currentTheme].accent
-        themeDropdown.ClipsDescendants = true
-        themeDropdown.Parent = settingsSection
-        
-        local dropdownCorner = Instance.new("UICorner")
-        dropdownCorner.CornerRadius = UDim.new(0, 4)
-        dropdownCorner.Parent = themeDropdown
-        
+        -- Простая смена темы без dropdown
         local themesList = {"dark", "white", "green", "red"}
-        
-        for i, themeName in ipairs(themesList) do
-            local themeBtn = Instance.new("TextButton")
-            themeBtn.Size = UDim2.new(0, 100, 0, 30)
-            themeBtn.Position = UDim2.new(0, 0, 0, (i-1)*35)
-            themeBtn.BackgroundColor3 = themes[themeName].button
-            themeBtn.TextColor3 = themes[themeName].text
-            themeBtn.Text = themeName:upper()
-            themeBtn.TextSize = 12
-            themeBtn.Font = Enum.Font.Gotham
-            themeBtn.Parent = themeDropdown
-            
-            local btnCorner = Instance.new("UICorner")
-            btnCorner.CornerRadius = UDim.new(0, 4)
-            btnCorner.Parent = themeBtn
-            
-            themeBtn.MouseButton1Click:Connect(function()
-                currentTheme = themeName
-                themeLabel.Text = "🎨 Theme: " .. currentTheme
-                
-                -- Update menu theme
-                mainFrame.BackgroundColor3 = themes[currentTheme].bg
-                topBar.BackgroundColor3 = themes[currentTheme].header
-                title.TextColor3 = themes[currentTheme].accent
-                sidebar.BackgroundColor3 = themes[currentTheme].header
-                contentFrame.BackgroundColor3 = themes[currentTheme].bg
-                
-                -- Update buttons
-                for _, btn in ipairs(sidebar:GetChildren()) do
-                    if btn:IsA("TextButton") then
-                        btn.BackgroundColor3 = btn.Name == currentSection and themes[currentTheme].accent or themes[currentTheme].button
-                        btn.TextColor3 = themes[currentTheme].text
-                    end
-                end
-                
-                themeDropdown:Destroy()
-                themeDropdown = nil
-                
-                showNotification("Theme changed to " .. themeName, "🎨")
-            end)
+        local currentIndex = 1
+        for i, theme in ipairs(themesList) do
+            if theme == currentTheme then
+                currentIndex = i
+                break
+            end
         end
         
-        tween(themeDropdown, {Size = UDim2.new(0, 100, 0, #themesList * 35)}, 0.2)
+        currentIndex = currentIndex + 1
+        if currentIndex > #themesList then
+            currentIndex = 1
+        end
+        
+        currentTheme = themesList[currentIndex]
+        themeLabel.Text = "🎨 Theme: " .. currentTheme
+        
+        -- Update menu theme
+        mainFrame.BackgroundColor3 = themes[currentTheme].bg
+        topBar.BackgroundColor3 = themes[currentTheme].header
+        title.TextColor3 = themes[currentTheme].accent
+        sidebar.BackgroundColor3 = themes[currentTheme].header
+        contentFrame.BackgroundColor3 = themes[currentTheme].bg
+        
+        -- Update buttons
+        for _, btn in ipairs(sidebar:GetChildren()) do
+            if btn:IsA("TextButton") then
+                btn.BackgroundColor3 = btn.Name == currentSection and themes[currentTheme].accent or themes[currentTheme].button
+                btn.TextColor3 = themes[currentTheme].text
+            end
+        end
+        
+        showNotification("Theme changed to " .. currentTheme, "🎨")
     end)
     
     settingsY = settingsY + 40
@@ -971,21 +863,12 @@ local function createMainMenu()
     bindBtnCorner.CornerRadius = UDim.new(0, 4)
     bindBtnCorner.Parent = bindButton
     
-    local listeningForKey = false
-    local keyConnection = nil
-    
     bindButton.MouseButton1Click:Connect(function()
-        if listeningForKey then return end
-        
-        listeningForKey = true
         bindButton.Text = "Press any key..."
         bindButton.BackgroundColor3 = themes[currentTheme].accent
         
-        if keyConnection then
-            keyConnection:Disconnect()
-        end
-        
-        keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             
             if input.KeyCode ~= Enum.KeyCode.Unknown then
@@ -994,16 +877,10 @@ local function createMainMenu()
                 bindLabel.Text = "⌨️ Open Key: " .. keyName
                 bindButton.Text = "Change"
                 bindButton.BackgroundColor3 = themes[currentTheme].button
-                listeningForKey = false
                 
-                showNotification("Menu key changed to " .. keyName, "⌨️")
-                
-                if keyConnection then
-                    keyConnection:Disconnect()
-                    keyConnection = nil
-                end
-                
+                connection:Disconnect()
                 setupKeyBind()
+                showNotification("Menu key changed to " .. keyName, "⌨️")
             end
         end)
     end)
@@ -1032,11 +909,9 @@ local function createMainMenu()
         if noclipConnection then
             noclipConnection:Disconnect()
         end
-        if keyConnection then
-            keyConnection:Disconnect()
-        end
         
         ScreenGui:Destroy()
+        showNotification("Script ended", "👋")
     end)
     
     -- Анимация открытия
@@ -1045,3 +920,6 @@ end
 
 -- Запускаем скрипт
 createLoadingScreen()
+
+print("✅ Snow Menu loaded successfully!")
+print("✅ Use LControl to open/close menu")
