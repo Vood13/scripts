@@ -10,6 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local StatsService = game:GetService("Stats")
 
 -- Создаем основной экран
 local ScreenGui = Instance.new("ScreenGui")
@@ -58,6 +59,14 @@ local notificationsEnabled = true
 local isMenuOpen = false
 local mainFrame = nil
 local menuToggleKey = Enum.KeyCode.LeftControl
+local keyBindConnection = nil
+local playerSettings = {
+    speed = 16,
+    jump = 50,
+    noclip = false
+}
+local noclipConnection = nil
+local themeDropdown = nil
 
 -- Функция для анимаций
 local function tween(obj, props, duration)
@@ -67,67 +76,67 @@ local function tween(obj, props, duration)
     return tweenObj
 end
 
--- Функция показа уведомления (уже с обводкой и закругленными краями)
-local function showNotification(title, text, icon)
+-- НОВЫЙ ДИЗАЙН УВЕДОМЛЕНИЙ (минималистичный)
+local function showNotification(text, icon)
     if not notificationsEnabled then return end
     
     local notification = Instance.new("Frame")
     notification.Name = "Notification"
-    notification.Size = UDim2.new(0, 280, 0, 60)  -- Уже и меньше
-    notification.Position = UDim2.new(1, -300, 1, -80)
+    notification.Size = UDim2.new(0, 300, 0, 50)
+    notification.Position = UDim2.new(1, -320, 1, -70)
     notification.BackgroundColor3 = themes[currentTheme].header
     notification.BorderSizePixel = 1
     notification.BorderColor3 = themes[currentTheme].accent
     notification.ZIndex = 100
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
+    corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = notification
+    
+    local leftBar = Instance.new("Frame")
+    leftBar.Size = UDim2.new(0, 4, 1, -10)
+    leftBar.Position = UDim2.new(0, 8, 0, 5)
+    leftBar.BackgroundColor3 = themes[currentTheme].accent
+    leftBar.BorderSizePixel = 0
+    leftBar.Parent = notification
+    
+    local leftCorner = Instance.new("UICorner")
+    leftCorner.CornerRadius = UDim.new(0, 2)
+    leftCorner.Parent = leftBar
     
     local iconLabel = Instance.new("TextLabel")
     iconLabel.Size = UDim2.new(0, 30, 0, 30)
-    iconLabel.Position = UDim2.new(0, 15, 0.5, -15)
+    iconLabel.Position = UDim2.new(0, 20, 0.5, -15)
     iconLabel.BackgroundTransparency = 1
-    iconLabel.Text = icon or "ℹ️"
+    iconLabel.Text = icon or "⚡"
     iconLabel.TextColor3 = themes[currentTheme].accent
-    iconLabel.TextSize = 20
+    iconLabel.TextSize = 18
     iconLabel.Font = Enum.Font.GothamBold
     iconLabel.Parent = notification
     
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(0, 200, 0, 20)
-    titleLabel.Position = UDim2.new(0, 55, 0, 10)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title
-    titleLabel.TextColor3 = themes[currentTheme].accent
-    titleLabel.TextSize = 14
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = notification
-    
     local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(0, 200, 0, 25)
-    textLabel.Position = UDim2.new(0, 55, 0, 30)
+    textLabel.Size = UDim2.new(0, 220, 1, 0)
+    textLabel.Position = UDim2.new(0, 60, 0, 0)
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text
     textLabel.TextColor3 = themes[currentTheme].text
-    textLabel.TextSize = 12
+    textLabel.TextSize = 14
     textLabel.Font = Enum.Font.Gotham
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
-    textLabel.TextYAlignment = Enum.TextYAlignment.Top
+    textLabel.TextYAlignment = Enum.TextYAlignment.Center
     textLabel.TextWrapped = true
     textLabel.Parent = notification
     
     notification.Parent = ScreenGui
     
     -- Анимация появления
-    notification.Position = UDim2.new(1, 280, 1, -80)
-    tween(notification, {Position = UDim2.new(1, -300, 1, -80)}, 0.3)
+    notification.Position = UDim2.new(1, 300, 1, -70)
+    tween(notification, {Position = UDim2.new(1, -320, 1, -70)}, 0.3)
     
     -- Автоматическое скрытие через 3 секунды
     task.spawn(function()
         task.wait(3)
-        tween(notification, {Position = UDim2.new(1, 280, 1, -80)}, 0.3)
+        tween(notification, {Position = UDim2.new(1, 300, 1, -70)}, 0.3)
         task.wait(0.3)
         notification:Destroy()
     end)
@@ -135,18 +144,24 @@ end
 
 -- Функция настройки привязки клавиши
 local function setupKeyBind()
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if keyBindConnection then
+        keyBindConnection:Disconnect()
+    end
+    
+    keyBindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
+        
         if input.KeyCode == menuToggleKey then
             if not isMenuOpen then
                 createMainMenu()
+                isMenuOpen = true
             else
                 closeMenu()
             end
         end
     end)
     
-    showNotification("Key Bind", "Press LControl to open menu", "⌨️")
+    showNotification("Press LControl to open menu", "⌨️")
 end
 
 -- Функция закрытия меню
@@ -158,97 +173,34 @@ local function closeMenu()
     task.wait(0.3)
     mainFrame:Destroy()
     mainFrame = nil
-end
-
--- Функция открытия меню
-local function openMenu()
-    if isMenuOpen then
-        closeMenu()
-        return
+    
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
     end
-    isMenuOpen = true
-    createMainMenu()
 end
 
--- Экран ввода ключа
-local function createKeyInput()
-    local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.new(0, 400, 0, 250)
-    keyFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
-    keyFrame.BackgroundColor3 = themes[currentTheme].bg
-    keyFrame.BorderSizePixel = 0
-    keyFrame.ZIndex = 10
-    keyFrame.Parent = ScreenGui
+-- Функция для noclip
+local function updateNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
     
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = keyFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 300, 0, 40)
-    title.Position = UDim2.new(0.5, -150, 0, 20)
-    title.BackgroundTransparency = 1
-    title.Text = "Snow - Kvizzi"
-    title.TextColor3 = themes[currentTheme].accent
-    title.TextSize = 24
-    title.Font = Enum.Font.GothamBold
-    title.Parent = keyFrame
-    
-    local description = Instance.new("TextLabel")
-    description.Size = UDim2.new(0, 350, 0, 40)
-    description.Position = UDim2.new(0.5, -175, 0, 60)
-    description.BackgroundTransparency = 1
-    description.Text = "Enter key to continue\nif u want to get key, write me: @Kvizzi"
-    description.TextColor3 = themes[currentTheme].text
-    description.TextSize = 14
-    description.Font = Enum.Font.Gotham
-    description.TextYAlignment = Enum.TextYAlignment.Top
-    description.TextWrapped = true
-    description.Parent = keyFrame
-    
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0, 300, 0, 40)
-    keyBox.Position = UDim2.new(0.5, -150, 0.5, -20)
-    keyBox.BackgroundColor3 = themes[currentTheme].button
-    keyBox.TextColor3 = themes[currentTheme].text
-    keyBox.Text = ""
-    keyBox.PlaceholderText = "Enter key here..."
-    keyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    keyBox.TextSize = 16
-    keyBox.Font = Enum.Font.Gotham
-    keyBox.ClearTextOnFocus = false
-    keyBox.Parent = keyFrame
-    
-    local boxCorner = Instance.new("UICorner")
-    boxCorner.CornerRadius = UDim.new(0, 4)
-    boxCorner.Parent = keyBox
-    
-    local submitButton = Instance.new("TextButton")
-    submitButton.Size = UDim2.new(0, 100, 0, 40)
-    submitButton.Position = UDim2.new(0.5, -50, 0.8, -20)
-    submitButton.BackgroundColor3 = themes[currentTheme].accent
-    submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitButton.Text = "SUBMIT"
-    submitButton.TextSize = 16
-    submitButton.Font = Enum.Font.GothamBold
-    submitButton.Parent = keyFrame
-    
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 4)
-    buttonCorner.Parent = submitButton
-    
-    submitButton.MouseButton1Click:Connect(function()
-        if keyBox.Text == "key12345" then
-            showNotification("✅ Success", "Welcome to Snow - Kvizzi!", "✅")
-            task.wait(0.5)
-            keyFrame:Destroy()
-            setupKeyBind()
-        else
-            keyBox.Text = ""
-            keyBox.PlaceholderText = "Wrong key! Try again..."
-            showNotification("❌ Error", "Invalid key!", "❌")
-        end
-    end)
+    if playerSettings.noclip then
+        noclipConnection = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+        showNotification("Noclip enabled", "🚫")
+    else
+        showNotification("Noclip disabled", "✅")
+    end
 end
 
 -- Прогресс бар загрузки
@@ -335,6 +287,87 @@ local function createLoadingScreen()
     end)
 end
 
+-- Экран ввода ключа
+local function createKeyInput()
+    local keyFrame = Instance.new("Frame")
+    keyFrame.Size = UDim2.new(0, 400, 0, 250)
+    keyFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
+    keyFrame.BackgroundColor3 = themes[currentTheme].bg
+    keyFrame.BorderSizePixel = 0
+    keyFrame.ZIndex = 10
+    keyFrame.Parent = ScreenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = keyFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 300, 0, 40)
+    title.Position = UDim2.new(0.5, -150, 0, 20)
+    title.BackgroundTransparency = 1
+    title.Text = "Snow - Kvizzi"
+    title.TextColor3 = themes[currentTheme].accent
+    title.TextSize = 24
+    title.Font = Enum.Font.GothamBold
+    title.Parent = keyFrame
+    
+    local description = Instance.new("TextLabel")
+    description.Size = UDim2.new(0, 350, 0, 40)
+    description.Position = UDim2.new(0.5, -175, 0, 60)
+    description.BackgroundTransparency = 1
+    description.Text = "Enter key to continue\nif u want to get key, write me: @Kvizzi"
+    description.TextColor3 = themes[currentTheme].text
+    description.TextSize = 14
+    description.Font = Enum.Font.Gotham
+    description.TextYAlignment = Enum.TextYAlignment.Top
+    description.TextWrapped = true
+    description.Parent = keyFrame
+    
+    local keyBox = Instance.new("TextBox")
+    keyBox.Size = UDim2.new(0, 300, 0, 40)
+    keyBox.Position = UDim2.new(0.5, -150, 0.5, -20)
+    keyBox.BackgroundColor3 = themes[currentTheme].button
+    keyBox.TextColor3 = themes[currentTheme].text
+    keyBox.Text = ""
+    keyBox.PlaceholderText = "Enter key here..."
+    keyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    keyBox.TextSize = 16
+    keyBox.Font = Enum.Font.Gotham
+    keyBox.ClearTextOnFocus = false
+    keyBox.Parent = keyFrame
+    
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 4)
+    boxCorner.Parent = keyBox
+    
+    local submitButton = Instance.new("TextButton")
+    submitButton.Size = UDim2.new(0, 100, 0, 40)
+    submitButton.Position = UDim2.new(0.5, -50, 0.8, -20)
+    submitButton.BackgroundColor3 = themes[currentTheme].accent
+    submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    submitButton.Text = "SUBMIT"
+    submitButton.TextSize = 16
+    submitButton.Font = Enum.Font.GothamBold
+    submitButton.Parent = keyFrame
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 4)
+    buttonCorner.Parent = submitButton
+    
+    submitButton.MouseButton1Click:Connect(function()
+        if keyBox.Text == "key12345" then
+            showNotification("Welcome to Snow - Kvizzi!", "✅")
+            task.wait(0.5)
+            keyFrame:Destroy()
+            setupKeyBind()
+        else
+            keyBox.Text = ""
+            keyBox.PlaceholderText = "Wrong key! Try again..."
+            showNotification("Invalid key!", "❌")
+        end
+    end)
+end
+
 -- Главное меню
 local function createMainMenu()
     if mainFrame then
@@ -353,6 +386,7 @@ local function createMainMenu()
     corner.Parent = mainFrame
     
     local topBar = Instance.new("Frame")
+    topBar.Name = "TopBar"
     topBar.Size = UDim2.new(1, 0, 0, 40)
     topBar.BackgroundColor3 = themes[currentTheme].header
     topBar.BorderSizePixel = 0
@@ -363,6 +397,7 @@ local function createMainMenu()
     topCorner.Parent = topBar
     
     local title = Instance.new("TextLabel")
+    title.Name = "TitleLabel"
     title.Size = UDim2.new(0, 200, 0, 40)
     title.Position = UDim2.new(0.5, -100, 0, 0)
     title.BackgroundTransparency = 1
@@ -391,6 +426,7 @@ local function createMainMenu()
     end)
     
     local sidebar = Instance.new("Frame")
+    sidebar.Name = "Sidebar"
     sidebar.Size = UDim2.new(0, 100, 0, 310)
     sidebar.Position = UDim2.new(0, 0, 0, 40)
     sidebar.BackgroundColor3 = themes[currentTheme].header
@@ -460,38 +496,253 @@ local function createMainMenu()
     mainSection.Parent = contentFrame
     sectionFrames.main = mainSection
     
+    -- Speed
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0, 100, 0, 30)
     speedLabel.Position = UDim2.new(0, 20, 0, 20)
     speedLabel.BackgroundTransparency = 1
-    speedLabel.Text = "Speed: 16"
+    speedLabel.Text = "Speed: " .. playerSettings.speed
     speedLabel.TextColor3 = themes[currentTheme].text
     speedLabel.TextSize = 16
     speedLabel.Font = Enum.Font.Gotham
     speedLabel.TextXAlignment = Enum.TextXAlignment.Left
     speedLabel.Parent = mainSection
     
+    local speedSlider = Instance.new("Frame")
+    speedSlider.Size = UDim2.new(0, 200, 0, 20)
+    speedSlider.Position = UDim2.new(0, 130, 0, 25)
+    speedSlider.BackgroundColor3 = themes[currentTheme].button
+    speedSlider.Parent = mainSection
+    
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(0, 4)
+    sliderCorner.Parent = speedSlider
+    
+    local speedFill = Instance.new("Frame")
+    speedFill.Size = UDim2.new((playerSettings.speed - 16) / (100 - 16), 0, 1, 0)
+    speedFill.BackgroundColor3 = themes[currentTheme].slider
+    speedFill.BorderSizePixel = 0
+    speedFill.Parent = speedSlider
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 4)
+    fillCorner.Parent = speedFill
+    
+    local speedInput = Instance.new("TextBox")
+    speedInput.Size = UDim2.new(0, 60, 0, 30)
+    speedInput.Position = UDim2.new(0, 340, 0, 20)
+    speedInput.BackgroundColor3 = themes[currentTheme].button
+    speedInput.TextColor3 = themes[currentTheme].text
+    speedInput.Text = tostring(playerSettings.speed)
+    speedInput.TextSize = 14
+    speedInput.Font = Enum.Font.Gotham
+    speedInput.Parent = mainSection
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 4)
+    inputCorner.Parent = speedInput
+    
+    -- Speed slider logic
+    local dragging = false
+    speedSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    speedSlider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = Vector2.new(input.Position.X, input.Position.Y)
+            local relativeX = (pos.X - speedSlider.AbsolutePosition.X) / speedSlider.AbsoluteSize.X
+            relativeX = math.clamp(relativeX, 0, 1)
+            
+            playerSettings.speed = math.floor(16 + relativeX * (100 - 16))
+            speedFill.Size = UDim2.new(relativeX, 0, 1, 0)
+            speedLabel.Text = "Speed: " .. playerSettings.speed
+            speedInput.Text = tostring(playerSettings.speed)
+            
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = playerSettings.speed
+                end
+            end
+        end
+    end)
+    
+    speedInput.FocusLost:Connect(function()
+        local num = tonumber(speedInput.Text)
+        if num then
+            num = math.clamp(num, 16, 100)
+            playerSettings.speed = num
+            speedInput.Text = tostring(num)
+            speedLabel.Text = "Speed: " .. num
+            speedFill.Size = UDim2.new((num - 16) / (100 - 16), 0, 1, 0)
+            
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = num
+                end
+            end
+        else
+            speedInput.Text = tostring(playerSettings.speed)
+        end
+    end)
+    
+    -- Jump
     local jumpLabel = Instance.new("TextLabel")
     jumpLabel.Size = UDim2.new(0, 100, 0, 30)
     jumpLabel.Position = UDim2.new(0, 20, 0, 70)
     jumpLabel.BackgroundTransparency = 1
-    jumpLabel.Text = "Jump: 50"
+    jumpLabel.Text = "Jump: " .. playerSettings.jump
     jumpLabel.TextColor3 = themes[currentTheme].text
     jumpLabel.TextSize = 16
     jumpLabel.Font = Enum.Font.Gotham
     jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
     jumpLabel.Parent = mainSection
     
+    local jumpSlider = Instance.new("Frame")
+    jumpSlider.Size = UDim2.new(0, 200, 0, 20)
+    jumpSlider.Position = UDim2.new(0, 130, 0, 75)
+    jumpSlider.BackgroundColor3 = themes[currentTheme].button
+    jumpSlider.Parent = mainSection
+    
+    local jumpSliderCorner = Instance.new("UICorner")
+    jumpSliderCorner.CornerRadius = UDim.new(0, 4)
+    jumpSliderCorner.Parent = jumpSlider
+    
+    local jumpFill = Instance.new("Frame")
+    jumpFill.Size = UDim2.new((playerSettings.jump - 50) / (200 - 50), 0, 1, 0)
+    jumpFill.BackgroundColor3 = themes[currentTheme].slider
+    jumpFill.BorderSizePixel = 0
+    jumpFill.Parent = jumpSlider
+    
+    local jumpFillCorner = Instance.new("UICorner")
+    jumpFillCorner.CornerRadius = UDim.new(0, 4)
+    jumpFillCorner.Parent = jumpFill
+    
+    local jumpInput = Instance.new("TextBox")
+    jumpInput.Size = UDim2.new(0, 60, 0, 30)
+    jumpInput.Position = UDim2.new(0, 340, 0, 70)
+    jumpInput.BackgroundColor3 = themes[currentTheme].button
+    jumpInput.TextColor3 = themes[currentTheme].text
+    jumpInput.Text = tostring(playerSettings.jump)
+    jumpInput.TextSize = 14
+    jumpInput.Font = Enum.Font.Gotham
+    jumpInput.Parent = mainSection
+    
+    local jumpInputCorner = Instance.new("UICorner")
+    jumpInputCorner.CornerRadius = UDim.new(0, 4)
+    jumpInputCorner.Parent = jumpInput
+    
+    -- Jump slider logic
+    local jumpDragging = false
+    jumpSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            jumpDragging = true
+        end
+    end)
+    
+    jumpSlider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            jumpDragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if jumpDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = Vector2.new(input.Position.X, input.Position.Y)
+            local relativeX = (pos.X - jumpSlider.AbsolutePosition.X) / jumpSlider.AbsoluteSize.X
+            relativeX = math.clamp(relativeX, 0, 1)
+            
+            playerSettings.jump = math.floor(50 + relativeX * (200 - 50))
+            jumpFill.Size = UDim2.new(relativeX, 0, 1, 0)
+            jumpLabel.Text = "Jump: " .. playerSettings.jump
+            jumpInput.Text = tostring(playerSettings.jump)
+            
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = playerSettings.jump
+                end
+            end
+        end
+    end)
+    
+    jumpInput.FocusLost:Connect(function()
+        local num = tonumber(jumpInput.Text)
+        if num then
+            num = math.clamp(num, 50, 200)
+            playerSettings.jump = num
+            jumpInput.Text = tostring(num)
+            jumpLabel.Text = "Jump: " .. num
+            jumpFill.Size = UDim2.new((num - 50) / (200 - 50), 0, 1, 0)
+            
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = num
+                end
+            end
+        else
+            jumpInput.Text = tostring(playerSettings.jump)
+        end
+    end)
+    
+    -- Noclip
     local noclipLabel = Instance.new("TextLabel")
     noclipLabel.Size = UDim2.new(0, 100, 0, 30)
     noclipLabel.Position = UDim2.new(0, 20, 0, 120)
     noclipLabel.BackgroundTransparency = 1
-    noclipLabel.Text = "Noclip: OFF"
+    noclipLabel.Text = "Noclip: " .. (playerSettings.noclip and "ON" or "OFF")
     noclipLabel.TextColor3 = themes[currentTheme].text
     noclipLabel.TextSize = 16
     noclipLabel.Font = Enum.Font.Gotham
     noclipLabel.TextXAlignment = Enum.TextXAlignment.Left
     noclipLabel.Parent = mainSection
+    
+    local noclipToggle = Instance.new("TextButton")
+    noclipToggle.Size = UDim2.new(0, 50, 0, 25)
+    noclipToggle.Position = UDim2.new(0, 130, 0, 125)
+    noclipToggle.BackgroundColor3 = playerSettings.noclip and themes[currentTheme].accent or Color3.fromRGB(80, 80, 80)
+    noclipToggle.Text = ""
+    noclipToggle.Parent = mainSection
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 12)
+    toggleCorner.Parent = noclipToggle
+    
+    local toggleCircle = Instance.new("Frame")
+    toggleCircle.Size = UDim2.new(0, 21, 0, 21)
+    toggleCircle.Position = UDim2.new(0, playerSettings.noclip and 27 or 2, 0, 2)
+    toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggleCircle.Parent = noclipToggle
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(0.5, 0)
+    circleCorner.Parent = toggleCircle
+    
+    noclipToggle.MouseButton1Click:Connect(function()
+        playerSettings.noclip = not playerSettings.noclip
+        noclipLabel.Text = "Noclip: " .. (playerSettings.noclip and "ON" or "OFF")
+        
+        if playerSettings.noclip then
+            tween(toggleCircle, {Position = UDim2.new(0, 27, 0, 2)}, 0.2)
+            noclipToggle.BackgroundColor3 = themes[currentTheme].accent
+        else
+            tween(toggleCircle, {Position = UDim2.new(0, 2, 0, 2)}, 0.2)
+            noclipToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        end
+        
+        updateNoclip()
+    end)
     
     -- Раздел Tech
     local techSection = Instance.new("Frame")
@@ -551,11 +802,12 @@ local function createMainMenu()
     
     local settingsY = 20
     
+    -- Theme
     local themeLabel = Instance.new("TextLabel")
     themeLabel.Size = UDim2.new(0, 120, 0, 30)
     themeLabel.Position = UDim2.new(0, 20, 0, settingsY)
     themeLabel.BackgroundTransparency = 1
-    themeLabel.Text = "🎨 Theme: dark"
+    themeLabel.Text = "🎨 Theme: " .. currentTheme
     themeLabel.TextColor3 = themes[currentTheme].text
     themeLabel.TextSize = 16
     themeLabel.Font = Enum.Font.Gotham
@@ -576,21 +828,124 @@ local function createMainMenu()
     themeBtnCorner.CornerRadius = UDim.new(0, 4)
     themeBtnCorner.Parent = themeButton
     
+    themeButton.MouseButton1Click:Connect(function()
+        if themeDropdown then
+            themeDropdown:Destroy()
+            themeDropdown = nil
+            return
+        end
+        
+        themeDropdown = Instance.new("Frame")
+        themeDropdown.Size = UDim2.new(0, 100, 0, 0)
+        themeDropdown.Position = UDim2.new(0, 150, 0, settingsY + 35)
+        themeDropdown.BackgroundColor3 = themes[currentTheme].header
+        themeDropdown.BorderSizePixel = 1
+        themeDropdown.BorderColor3 = themes[currentTheme].accent
+        themeDropdown.ClipsDescendants = true
+        themeDropdown.Parent = settingsSection
+        
+        local dropdownCorner = Instance.new("UICorner")
+        dropdownCorner.CornerRadius = UDim.new(0, 4)
+        dropdownCorner.Parent = themeDropdown
+        
+        local themesList = {"dark", "white", "green", "red"}
+        
+        for i, themeName in ipairs(themesList) do
+            local themeBtn = Instance.new("TextButton")
+            themeBtn.Size = UDim2.new(0, 100, 0, 30)
+            themeBtn.Position = UDim2.new(0, 0, 0, (i-1)*35)
+            themeBtn.BackgroundColor3 = themes[themeName].button
+            themeBtn.TextColor3 = themes[themeName].text
+            themeBtn.Text = themeName:upper()
+            themeBtn.TextSize = 12
+            themeBtn.Font = Enum.Font.Gotham
+            themeBtn.Parent = themeDropdown
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 4)
+            btnCorner.Parent = themeBtn
+            
+            themeBtn.MouseButton1Click:Connect(function()
+                currentTheme = themeName
+                themeLabel.Text = "🎨 Theme: " .. currentTheme
+                
+                -- Update menu theme
+                mainFrame.BackgroundColor3 = themes[currentTheme].bg
+                topBar.BackgroundColor3 = themes[currentTheme].header
+                title.TextColor3 = themes[currentTheme].accent
+                sidebar.BackgroundColor3 = themes[currentTheme].header
+                contentFrame.BackgroundColor3 = themes[currentTheme].bg
+                
+                -- Update buttons
+                for _, btn in ipairs(sidebar:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        btn.BackgroundColor3 = btn.Name == currentSection and themes[currentTheme].accent or themes[currentTheme].button
+                        btn.TextColor3 = themes[currentTheme].text
+                    end
+                end
+                
+                themeDropdown:Destroy()
+                themeDropdown = nil
+                
+                showNotification("Theme changed to " .. themeName, "🎨")
+            end)
+        end
+        
+        tween(themeDropdown, {Size = UDim2.new(0, 100, 0, #themesList * 35)}, 0.2)
+    end)
+    
     settingsY = settingsY + 40
     
+    -- Notifications
     local notifLabel = Instance.new("TextLabel")
     notifLabel.Size = UDim2.new(0, 120, 0, 30)
     notifLabel.Position = UDim2.new(0, 20, 0, settingsY)
     notifLabel.BackgroundTransparency = 1
-    notifLabel.Text = "🔔 Notifications: ON"
+    notifLabel.Text = "🔔 Notifications: " .. (notificationsEnabled and "ON" or "OFF")
     notifLabel.TextColor3 = themes[currentTheme].text
     notifLabel.TextSize = 16
     notifLabel.Font = Enum.Font.Gotham
     notifLabel.TextXAlignment = Enum.TextXAlignment.Left
     notifLabel.Parent = settingsSection
     
+    local notifToggle = Instance.new("TextButton")
+    notifToggle.Size = UDim2.new(0, 50, 0, 25)
+    notifToggle.Position = UDim2.new(0, 150, 0, settingsY + 2)
+    notifToggle.BackgroundColor3 = notificationsEnabled and themes[currentTheme].accent or Color3.fromRGB(80, 80, 80)
+    notifToggle.Text = ""
+    notifToggle.Parent = settingsSection
+    
+    local notifToggleCorner = Instance.new("UICorner")
+    notifToggleCorner.CornerRadius = UDim.new(0, 12)
+    notifToggleCorner.Parent = notifToggle
+    
+    local notifCircle = Instance.new("Frame")
+    notifCircle.Size = UDim2.new(0, 21, 0, 21)
+    notifCircle.Position = UDim2.new(0, notificationsEnabled and 27 or 2, 0, 2)
+    notifCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    notifCircle.Parent = notifToggle
+    
+    local notifCircleCorner = Instance.new("UICorner")
+    notifCircleCorner.CornerRadius = UDim.new(0.5, 0)
+    notifCircleCorner.Parent = notifCircle
+    
+    notifToggle.MouseButton1Click:Connect(function()
+        notificationsEnabled = not notificationsEnabled
+        notifLabel.Text = "🔔 Notifications: " .. (notificationsEnabled and "ON" or "OFF")
+        
+        if notificationsEnabled then
+            tween(notifCircle, {Position = UDim2.new(0, 27, 0, 2)}, 0.2)
+            notifToggle.BackgroundColor3 = themes[currentTheme].accent
+            showNotification("Notifications enabled", "🔔")
+        else
+            tween(notifCircle, {Position = UDim2.new(0, 2, 0, 2)}, 0.2)
+            notifToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        end
+    end)
+    
     settingsY = settingsY + 40
     
+    -- Key Bind
     local bindLabel = Instance.new("TextLabel")
     bindLabel.Size = UDim2.new(0, 120, 0, 30)
     bindLabel.Position = UDim2.new(0, 20, 0, settingsY)
@@ -616,8 +971,46 @@ local function createMainMenu()
     bindBtnCorner.CornerRadius = UDim.new(0, 4)
     bindBtnCorner.Parent = bindButton
     
+    local listeningForKey = false
+    local keyConnection = nil
+    
+    bindButton.MouseButton1Click:Connect(function()
+        if listeningForKey then return end
+        
+        listeningForKey = true
+        bindButton.Text = "Press any key..."
+        bindButton.BackgroundColor3 = themes[currentTheme].accent
+        
+        if keyConnection then
+            keyConnection:Disconnect()
+        end
+        
+        keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                menuToggleKey = input.KeyCode
+                local keyName = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+                bindLabel.Text = "⌨️ Open Key: " .. keyName
+                bindButton.Text = "Change"
+                bindButton.BackgroundColor3 = themes[currentTheme].button
+                listeningForKey = false
+                
+                showNotification("Menu key changed to " .. keyName, "⌨️")
+                
+                if keyConnection then
+                    keyConnection:Disconnect()
+                    keyConnection = nil
+                end
+                
+                setupKeyBind()
+            end
+        end)
+    end)
+    
     settingsY = settingsY + 50
     
+    -- Exit
     local exitButton = Instance.new("TextButton")
     exitButton.Size = UDim2.new(0, 200, 0, 40)
     exitButton.Position = UDim2.new(0.5, -100, 0, settingsY)
@@ -633,11 +1026,20 @@ local function createMainMenu()
     exitCorner.Parent = exitButton
     
     exitButton.MouseButton1Click:Connect(function()
+        if keyBindConnection then
+            keyBindConnection:Disconnect()
+        end
+        if noclipConnection then
+            noclipConnection:Disconnect()
+        end
+        if keyConnection then
+            keyConnection:Disconnect()
+        end
+        
         ScreenGui:Destroy()
-        showNotification("Exit", "Script ended", "👋")
     end)
     
-    -- Анимация открытия меню
+    -- Анимация открытия
     tween(mainFrame, {Size = UDim2.new(0, 450, 0, 350), Position = UDim2.new(0.5, -225, 0.5, -175)}, 0.3)
 end
 
