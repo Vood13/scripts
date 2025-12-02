@@ -93,7 +93,10 @@ local noclipConnection
 local function setNoclip(enabled)
     if noclipConnection then noclipConnection:Disconnect() end
     playerSettings.noclip = enabled
-    if not enabled then showNotification("Noclip disabled", "Enabled") return end
+    if not enabled then 
+        showNotification("Noclip disabled", "Checkmark")
+        return 
+    end
 
     noclipConnection = RunService.Stepped:Connect(function()
         if LocalPlayer.Character then
@@ -104,7 +107,7 @@ local function setNoclip(enabled)
             end
         end
     end)
-    showNotification("Noclip enabled", "Disabled")
+    showNotification("Noclip enabled", "Ghost")
 end
 
 -- === Применение скорости и прыжка (включая респавн) ===
