@@ -180,116 +180,7 @@ local function closeMenu()
     showNotification("Menu closed", "📱")
 end
 
--- Функция настройки привязки клавиши
-local function setupKeyBind()
-    if keyBindConnection then
-        keyBindConnection:Disconnect()
-    end
-    
-    keyBindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == menuToggleKey then
-            if not isMenuOpen then
-                createMainMenu()
-                isMenuOpen = true
-                showNotification("Menu opened", "📱")
-            else
-                closeMenu()
-            end
-        end
-    end)
-    
-    showNotification("Press LControl to open menu", "⌨️")
-end
-
--- Прогресс бар загрузки
-local function createLoadingScreen()
-    local loadingFrame = Instance.new("Frame")
-    loadingFrame.Size = UDim2.new(0, 400, 0, 250)
-    loadingFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
-    loadingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    loadingFrame.BorderSizePixel = 0
-    loadingFrame.ZIndex = 10
-    loadingFrame.Parent = ScreenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = loadingFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 200, 0, 40)
-    title.Position = UDim2.new(0.5, -100, 0, 30)
-    title.BackgroundTransparency = 1
-    title.Text = "Snow - Kvizzi"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 28
-    title.Font = Enum.Font.GothamBold
-    title.Parent = loadingFrame
-    
-    local description = Instance.new("TextLabel")
-    description.Size = UDim2.new(0, 350, 0, 40)
-    description.Position = UDim2.new(0.5, -175, 0, 80)
-    description.BackgroundTransparency = 1
-    description.Text = "if u want to get key, write me: @Kvizzi"
-    description.TextColor3 = Color3.fromRGB(200, 200, 200)
-    description.TextSize = 14
-    description.Font = Enum.Font.Gotham
-    description.Parent = loadingFrame
-    
-    local progressBarBack = Instance.new("Frame")
-    progressBarBack.Size = UDim2.new(0, 300, 0, 20)
-    progressBarBack.Position = UDim2.new(0.5, -150, 0.7, -10)
-    progressBarBack.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    progressBarBack.BorderSizePixel = 0
-    progressBarBack.Parent = loadingFrame
-    
-    local progressCorner = Instance.new("UICorner")
-    progressCorner.CornerRadius = UDim.new(0, 4)
-    progressCorner.Parent = progressBarBack
-    
-    local progressBar = Instance.new("Frame")
-    progressBar.Size = UDim2.new(0, 0, 1, 0)
-    progressBar.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-    progressBar.BorderSizePixel = 0
-    progressBar.Parent = progressBarBack
-    
-    local progressFillCorner = Instance.new("UICorner")
-    progressFillCorner.CornerRadius = UDim.new(0, 4)
-    progressFillCorner.Parent = progressBar
-    
-    local progressText = Instance.new("TextLabel")
-    progressText.Size = UDim2.new(1, 0, 1, 0)
-    progressText.BackgroundTransparency = 1
-    progressText.Text = "0%"
-    progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    progressText.TextSize = 14
-    progressText.Font = Enum.Font.GothamBold
-    progressText.Parent = progressBarBack
-    
-    local progress = 0
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        progress = math.min(progress + 0.5, 100)
-        progressBar.Size = UDim2.new(progress / 100, 0, 1, 0)
-        progressText.Text = math.floor(progress) .. "%"
-        
-        if progress >= 100 then
-            progressBar.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
-            connection:Disconnect()
-            
-            task.spawn(function()
-                task.wait(0.5)
-                loadingFrame:Destroy()
-                -- После загрузки сразу настраиваем клавишу
-                setupKeyBind()
-                showNotification("Menu ready! Press LControl", "✅")
-            end)
-        end
-    end)
-end
-
--- Главное меню
+-- ГЛАВНАЯ ФУНКЦИЯ МЕНЮ (ОБЪЯВЛЕНА ДО ТОГО, КАК ЕЕ ИСПОЛЬЗУЮТ)
 local function createMainMenu()
     if mainFrame then
         mainFrame:Destroy()
@@ -916,6 +807,114 @@ local function createMainMenu()
     
     -- Анимация открытия
     tween(mainFrame, {Size = UDim2.new(0, 450, 0, 350), Position = UDim2.new(0.5, -225, 0.5, -175)}, 0.3)
+end
+
+-- Функция настройки привязки клавиши (ТЕПЕРЬ ПОСЛЕ createMainMenu)
+local function setupKeyBind()
+    if keyBindConnection then
+        keyBindConnection:Disconnect()
+    end
+    
+    keyBindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == menuToggleKey then
+            if not isMenuOpen then
+                createMainMenu()
+                isMenuOpen = true
+                showNotification("Menu opened", "📱")
+            else
+                closeMenu()
+            end
+        end
+    end)
+    
+    showNotification("Press LControl to open menu", "⌨️")
+end
+
+-- Прогресс бар загрузки (В САМОМ КОНЦЕ)
+local function createLoadingScreen()
+    local loadingFrame = Instance.new("Frame")
+    loadingFrame.Size = UDim2.new(0, 400, 0, 250)
+    loadingFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
+    loadingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    loadingFrame.BorderSizePixel = 0
+    loadingFrame.ZIndex = 10
+    loadingFrame.Parent = ScreenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = loadingFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 200, 0, 40)
+    title.Position = UDim2.new(0.5, -100, 0, 30)
+    title.BackgroundTransparency = 1
+    title.Text = "Snow - Kvizzi"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 28
+    title.Font = Enum.Font.GothamBold
+    title.Parent = loadingFrame
+    
+    local description = Instance.new("TextLabel")
+    description.Size = UDim2.new(0, 350, 0, 40)
+    description.Position = UDim2.new(0.5, -175, 0, 80)
+    description.BackgroundTransparency = 1
+    description.Text = "if u want to get key, write me: @Kvizzi"
+    description.TextColor3 = Color3.fromRGB(200, 200, 200)
+    description.TextSize = 14
+    description.Font = Enum.Font.Gotham
+    description.Parent = loadingFrame
+    
+    local progressBarBack = Instance.new("Frame")
+    progressBarBack.Size = UDim2.new(0, 300, 0, 20)
+    progressBarBack.Position = UDim2.new(0.5, -150, 0.7, -10)
+    progressBarBack.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    progressBarBack.BorderSizePixel = 0
+    progressBarBack.Parent = loadingFrame
+    
+    local progressCorner = Instance.new("UICorner")
+    progressCorner.CornerRadius = UDim.new(0, 4)
+    progressCorner.Parent = progressBarBack
+    
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(0, 0, 1, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    progressBar.BorderSizePixel = 0
+    progressBar.Parent = progressBarBack
+    
+    local progressFillCorner = Instance.new("UICorner")
+    progressFillCorner.CornerRadius = UDim.new(0, 4)
+    progressFillCorner.Parent = progressBar
+    
+    local progressText = Instance.new("TextLabel")
+    progressText.Size = UDim2.new(1, 0, 1, 0)
+    progressText.BackgroundTransparency = 1
+    progressText.Text = "0%"
+    progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    progressText.TextSize = 14
+    progressText.Font = Enum.Font.GothamBold
+    progressText.Parent = progressBarBack
+    
+    local progress = 0
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        progress = math.min(progress + 0.5, 100)
+        progressBar.Size = UDim2.new(progress / 100, 0, 1, 0)
+        progressText.Text = math.floor(progress) .. "%"
+        
+        if progress >= 100 then
+            progressBar.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+            connection:Disconnect()
+            
+            task.spawn(function()
+                task.wait(0.5)
+                loadingFrame:Destroy()
+                setupKeyBind()
+                showNotification("Menu ready! Press LControl", "✅")
+            end)
+        end
+    end)
 end
 
 -- Запускаем скрипт
